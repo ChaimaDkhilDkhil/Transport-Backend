@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import mongoose from "mongoose";
-import transportModel from "./transport.model";
+import Transport from "./transport.model";
 import bodyParser from "body-parser";
 
 const cors = require('cors');
@@ -31,11 +31,11 @@ app.use(session({
 
 app.use(keycloak.middleware());
 app.use('/images', express.static(path.join(__dirname, '../transports')));
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3004;
 const eurekaHelper = require('./eureka-helper');
 
 app.listen(PORT, () => {
-  console.log("transport-server on 3000");
+  console.log("transport-server on 3004");
 });
 
 eurekaHelper.registerWithEureka('transport-server', PORT);
@@ -56,19 +56,18 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage }).single('image');
+const upload = multer({ storage: storage }).single('imagePath');
 app.post('/transports', upload, (req, res) => {
   console.log(req.file?.filename);
 
-  const { duration, date, returnDate, departure, destination, price } = req.body;
-  const imagePath = 'http://localhost:3000/images/' + req.file?.filename;
+  const { mark, location, nbPerson, nbLuggage, price } = req.body;
+  const imagePath = 'http://localhost:3004/images/' + req.file?.filename;
 
-  const newTransport = new transportModel({
-    duration,
-    date,
-    returnDate,
-    departure,
-    destination,
+  const newTransport = new Transport({
+    mark,
+    location,
+    nbPerson,
+    nbLuggage,
     price,
     imagePath,
   });
@@ -89,20 +88,20 @@ app.get("/transports", async (req: Request, resp: Response) => {
   const minPrice = parseInt(req.query.minPrice as string);
   const maxPrice = parseInt(req.query.maxPrice as string);
 
-  if (req.query.departure) {
-    filter.departure = req.query.departure;
+  if (req.query.mark) {
+    filter.mark = req.query.mark;
   }
 
-  if (req.query.destination) {
-    filter.destination = req.query.destination;
+  if (req.query.location) {
+    filter.location = req.query.location;
   }
 
-  if (req.query.date) {
-    filter.date = req.query.date;
+  if (req.query.nbPerson) {
+    filter.nbPerson = { $lte: req.query.nbPerson };
   }
 
-  if (req.query.returnDate) {
-    filter.returnDate = req.query.returnDate;
+  if (req.query.nbLuggage) {
+    filter.nbLuggage = { $lte: req.query.nbLuggage };
   }
 
   try {
@@ -119,8 +118,8 @@ app.get("/transports", async (req: Request, resp: Response) => {
       limit: pageSize
     };
 
-    const query = transportModel.find(filter);
-    transportModel.paginate(query, options, (err, result) => {
+    const query = Transport.find(filter);
+    Transport.paginate(query, options, (err, result) => {
       if (err) {
         resp.status(500).send(err);
       } else {
@@ -134,7 +133,81 @@ app.get("/transports", async (req: Request, resp: Response) => {
   }
 });
 
-// ... Autres endpoints restants
+
+app.get("/transportsList", keycloak.protect( 'realm:admin' ), (req: Request, resp: Response) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = parseInt(req.query.size as string) || 10;
+
+  Transport.paginate("", { page: page, limit: pageSize }, (err, result) => {
+    if (err) {
+      resp.status(500).send(err);
+    } else {
+      resp.send(result);
+    }
+  });
+
+});
+app.get("/transports/:id", (req: Request, resp: Response) => {
+  Transport.findById(req.params.id, (err: any, tranport: any) => {
+    if (err) resp.status(500).send(err);
+    else resp.send(tranport);
+  });
+});
+app.put("/transports/:id", upload, (req: Request, resp: Response) => {
+  const transportId = req.params.id;
+
+  const updateObject: any = {};
+  updateObject.mark = req.body.mark;
+  updateObject.location = req.body.location;
+  updateObject.nbPerson = req.body.nbPerson;
+  updateObject.nbLuggage = req.body.nbLuggage;
+  updateObject.price = req.body.price;
+  if (req.file) {
+    updateObject.imagePath = 'http://localhost:3004/images/' + req.file.filename;
+  }
+
+  Transport.findByIdAndUpdate(transportId, { $set: updateObject }, (err:any, updatedFlight:any) => {
+    if (err) {
+      console.error(err);
+      resp.status(500).json({ error: "Internal Server Error" });
+    } else {
+      resp.json(updateObject);
+    }
+    
+  });
+});
+
+
+app.delete("/transports/:id", (req: Request, resp: Response) => {
+  Transport.findByIdAndDelete(req.params.id, req.body, (err: any) => {
+    if (err) {
+      console.error(err);
+      resp.status(500).json({ error: "Internal Server Error" });
+    } else {
+      resp.json({ message: "Transport deleted successfully" });
+    }
+  });
+});
+
+
+app.get("/mark", (req, res) => {
+  Transport.distinct("mark", (err:any, mark:any) => {
+    if (err) {
+      res.status(500).send(err);
+    } else {
+      res.json(mark);
+    }
+  });
+});
+app.get("/location", (req, res) => {
+  Transport.distinct("location", (err:any, location:any) => {
+    if (err) {
+      res.status(500).send(err);
+    } else {
+      res.json(location);
+    }
+  });
+});
 
 app.get("/", (req, resp) => {
   resp.send("Transport Server");
