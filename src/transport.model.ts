@@ -2,16 +2,15 @@ import mongoose from "mongoose";
 import mongoosePaginate from "mongoose-paginate";
 
 
+
 let transportSchema = new mongoose.Schema({
-  duration: { type: String, required: true },
-  date:{type: Date,required: true},
-  returnDate:{type: Date,default:null},
-  destination: { type: String, required: true },
-  departure: { type: String, required: true },
+  mark:{type: String,default:true},
+  location: { type: String, required: true },
+  nbPerson: { type: Number, required: true },
+  nbLuggage: { type: Number, required: true },
   price: { type: Number, required: true },
   imagePath: { type: String, required: true },
 });
-
 transportSchema.plugin(mongoosePaginate);
 
 
