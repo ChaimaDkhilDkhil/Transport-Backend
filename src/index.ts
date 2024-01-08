@@ -57,7 +57,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage }).single('imagePath');
-app.post('/transports', upload, (req, res) => {
+app.post('/transports', keycloak.protect( 'realm:admin' ), upload, (req, res) => {
   console.log(req.file?.filename);
 
   const { mark, location, nbPerson, nbLuggage, price } = req.body;
@@ -153,7 +153,7 @@ app.get("/transports/:id", (req: Request, resp: Response) => {
     else resp.send(tranport);
   });
 });
-app.put("/transports/:id", upload, (req: Request, resp: Response) => {
+app.put("/transports/:id", keycloak.protect( 'realm:admin' ), upload, (req: Request, resp: Response) => {
   const transportId = req.params.id;
 
   const updateObject: any = {};
@@ -178,7 +178,7 @@ app.put("/transports/:id", upload, (req: Request, resp: Response) => {
 });
 
 
-app.delete("/transports/:id", (req: Request, resp: Response) => {
+app.delete("/transports/:id", keycloak.protect( 'realm:admin' ), (req: Request, resp: Response) => {
   Transport.findByIdAndDelete(req.params.id, req.body, (err: any) => {
     if (err) {
       console.error(err);
